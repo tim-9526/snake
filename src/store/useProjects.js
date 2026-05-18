@@ -1,10 +1,9 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { uid } from '../utils/uid'
+import * as fsApi from '../lib/fileStorage'
 
-const PROJECTS_KEY = 'dose-calculator-projects'
-const ACTIVE_KEY = 'dose-calculator-active-project'
 const DATA_VERSION = 1
-const SAVE_DEBOUNCE_MS = 200
+const SAVE_DEBOUNCE_MS = 600
 
 const defaultSegment = () => ({ id: uid(), length: '', width: '', height: '' })
 const defaultStack = () => ({ id: uid(), code: '', segments: [defaultSegment()] })
@@ -20,22 +19,13 @@ export const defaultProjectData = () => ({
 function migrateData(data) {
   if (!data) return defaultProjectData()
   const v = data._v ?? 0
-
   if (v < 1) {
     data = {
       _v: 1,
-      settings: {
-        density: 5,
-        dosePerPoint: 200,
-        unit: 'g',
-        warehouseColName: '仓库',
-        showZones: true,
-        ...data.settings,
-      },
+      settings: { density: 5, dosePerPoint: 200, unit: 'g', warehouseColName: '仓库', showZones: true, ...data.settings },
       warehouses: data.warehouses ?? [],
     }
   }
-
   return data
 }
 
@@ -43,84 +33,148 @@ function newProject(name) {
   return { id: uid(), name, data: defaultProjectData() }
 }
 
-function loadProjects() {
-  try {
-    const raw = localStorage.getItem(PROJECTS_KEY)
-    if (raw) {
-      const projects = JSON.parse(raw)
-      return projects.map(p => ({ ...p, data: migrateData(p.data) }))
-    }
-  } catch {}
-  return null
-}
-
-function loadActiveId() {
-  try { return localStorage.getItem(ACTIVE_KEY) || null } catch { return null }
-}
-
-// M1: surface storage errors instead of silently swallowing them
-function saveProjects(projects, onError) {
-  try {
-    localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects))
-  } catch (e) {
-    onError?.('存储空间不足，最新数据未能保存，请导出 JSON 备份')
+function parseFileData(raw) {
+  const projects = (raw.projects ?? []).map(p => ({ ...p, data: migrateData(p.data) }))
+  if (projects.length === 0) {
+    const fresh = newProject('项目 1')
+    return { projects: [fresh], activeId: fresh.id }
   }
+  const activeId = raw.activeId ?? projects[0].id
+  return { projects, activeId }
 }
 
-function saveActiveId(id) {
-  try { localStorage.setItem(ACTIVE_KEY, id) } catch {}
-}
+// ── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useProjects() {
-  const [projects, setProjects] = useState(() => {
-    const saved = loadProjects()
-    if (saved && saved.length > 0) return saved
-    const first = newProject('项目 1')
-    return [first]
-  })
-
-  const [activeId, setActiveId] = useState(() => {
-    const saved = loadActiveId()
-    const list = loadProjects()
-    if (list && list.length > 0) {
-      return list.find(p => p.id === saved) ? saved : list[0].id
-    }
-    return null
-  })
-
-  // M1: expose storage error to UI
+  // 'init' | 'no-file' | 'permission-needed' | 'ready' | 'not-supported'
+  const [fileStatus, setFileStatus] = useState('init')
+  const [fileHandle, setFileHandle] = useState(null)
+  const [fileName, setFileName] = useState('')
+  const [projects, setProjects] = useState([])
+  const [activeId, setActiveId] = useState(null)
   const [storageError, setStorageError] = useState(null)
 
-  // sync activeId on first render when projects were freshly created
-  useEffect(() => {
-    if (!activeId && projects.length > 0) {
-      setActiveId(projects[0].id)
-    }
+  const handleRef = useRef(null)
+  const saveTimer = useRef(null)
+  const pendingSave = useRef(null)
+  const justLoaded = useRef(false)
+
+  useEffect(() => { handleRef.current = fileHandle }, [fileHandle])
+
+  // ── File I/O ──────────────────────────────────────────────────────────────
+
+  const scheduleSave = useCallback((prjs, aid) => {
+    pendingSave.current = { projects: prjs, activeId: aid }
+    clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(async () => {
+      const h = handleRef.current
+      if (!h || !pendingSave.current) return
+      try {
+        await fsApi.writeFile(h, { _fv: 1, ...pendingSave.current })
+      } catch (e) {
+        setStorageError('文件写入失败：' + e.message)
+      }
+    }, SAVE_DEBOUNCE_MS)
   }, [])
 
-  // debounced localStorage write for projects
-  const saveTimer = useRef(null)
+  // save on data change (skip the render that came from loading)
   useEffect(() => {
-    clearTimeout(saveTimer.current)
-    saveTimer.current = setTimeout(
-      () => saveProjects(projects, setStorageError),
-      SAVE_DEBOUNCE_MS,
-    )
-    return () => clearTimeout(saveTimer.current)
-  }, [projects])
+    if (fileStatus !== 'ready') return
+    if (justLoaded.current) { justLoaded.current = false; return }
+    scheduleSave(projects, activeId)
+  }, [projects, activeId, fileStatus])
 
-  useEffect(() => { if (activeId) saveActiveId(activeId) }, [activeId])
+  async function applyHandle(handle) {
+    const raw = await fsApi.readFile(handle)
+    const { projects: prjs, activeId: aid } = parseFileData(raw)
+    justLoaded.current = true
+    setProjects(prjs)
+    setActiveId(aid)
+    setFileHandle(handle)
+    setFileName(handle.name)
+    setFileStatus('ready')
+    await fsApi.storeHandle(handle)
+  }
 
-  // H2: guard against undefined during state transitions
+  // ── Startup ───────────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (!fsApi.isSupported()) { setFileStatus('not-supported'); return }
+    fsApi.getStoredHandle().then(async handle => {
+      if (!handle) { setFileStatus('no-file'); return }
+      const perm = await fsApi.queryPermission(handle)
+      if (perm === 'granted') {
+        try { await applyHandle(handle) }
+        catch (e) { setStorageError(e.message); setFileStatus('no-file') }
+      } else if (perm === 'prompt') {
+        setFileHandle(handle)
+        setFileName(handle.name)
+        setFileStatus('permission-needed')
+      } else {
+        setFileStatus('no-file')
+      }
+    })
+  }, [])
+
+  // ── User actions ──────────────────────────────────────────────────────────
+
+  const selectFile = async () => {
+    try {
+      const [handle] = await window.showOpenFilePicker({
+        types: [{ description: '数据文件', accept: { 'application/json': ['.json'] } }],
+        multiple: false,
+      })
+      await applyHandle(handle)
+    } catch (e) {
+      if (e.name !== 'AbortError') setStorageError('打开文件失败：' + e.message)
+    }
+  }
+
+  const createFile = async () => {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: '投药量数据.json',
+        types: [{ description: '数据文件', accept: { 'application/json': ['.json'] } }],
+      })
+      const fresh = newProject('项目 1')
+      await fsApi.writeFile(handle, { _fv: 1, activeId: fresh.id, projects: [fresh] })
+      justLoaded.current = true
+      setProjects([fresh])
+      setActiveId(fresh.id)
+      setFileHandle(handle)
+      setFileName(handle.name)
+      setFileStatus('ready')
+      await fsApi.storeHandle(handle)
+    } catch (e) {
+      if (e.name !== 'AbortError') setStorageError('创建文件失败：' + e.message)
+    }
+  }
+
+  const resumeFile = async () => {
+    if (!fileHandle) return
+    const perm = await fsApi.requestPermission(fileHandle)
+    if (perm === 'granted') {
+      try { await applyHandle(fileHandle) }
+      catch (e) { setStorageError(e.message); setFileStatus('no-file') }
+    } else {
+      setFileStatus('no-file')
+    }
+  }
+
+  // ── Project mutations ─────────────────────────────────────────────────────
+
   const activeProject = projects.find(p => p.id === activeId) ?? projects[0] ?? null
 
-  // H1: use activeId inside updater, not stale activeProject closure
   const updateActiveData = (updater) => {
     setProjects(prev => {
       const target = prev.find(p => p.id === activeId)
       if (!target) return prev
       return prev.map(p => p.id === activeId ? { ...p, data: updater(p.data) } : p)
     })
+  }
+
+  const replaceActiveData = (data) => {
+    setProjects(prev => prev.map(p => p.id === activeId ? { ...p, data } : p))
   }
 
   const addProject = (name) => {
@@ -154,23 +208,12 @@ export function useProjects() {
     setActiveId(p.id)
   }
 
-  // H1: same fix for replaceActiveData
-  const replaceActiveData = (data) => {
-    setProjects(prev => prev.map(p => p.id === activeId ? { ...p, data } : p))
-  }
-
   return {
-    projects,
-    activeProject,
-    activeId,
-    storageError,
-    dismissStorageError: () => setStorageError(null),
-    switchProject,
-    addProject,
-    removeProject,
-    renameProject,
-    updateActiveData,
-    importProject,
-    replaceActiveData,
+    projects, activeProject, activeId,
+    fileStatus, fileName,
+    storageError, dismissStorageError: () => setStorageError(null),
+    selectFile, createFile, resumeFile,
+    switchProject, addProject, removeProject, renameProject,
+    updateActiveData, replaceActiveData, importProject,
   }
 }

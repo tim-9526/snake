@@ -7,6 +7,7 @@ import StackDetail from './components/StackDetail'
 import SummaryBar from './components/SummaryBar'
 import SummaryModal from './components/SummaryModal'
 import ProjectSwitcher from './components/ProjectSwitcher'
+import FilePrompt from './components/FilePrompt'
 import { exportExcel } from './utils/exportExcel'
 import { exportJson } from './utils/importData'
 import './App.css'
@@ -14,13 +15,31 @@ import './App.css'
 export default function App() {
   const {
     projects, activeProject, activeId,
+    fileStatus, fileName,
     storageError, dismissStorageError,
+    selectFile, createFile, resumeFile,
     switchProject, addProject, removeProject, renameProject,
     updateActiveData, importProject,
   } = useProjects()
 
   const [showSummary, setShowSummary] = useState(false)
   const [detailTarget, setDetailTarget] = useState(null)
+
+  if (fileStatus === 'init') {
+    return <div className="auth-loading"><span className="auth-loading-dot" /></div>
+  }
+
+  if (fileStatus !== 'ready') {
+    return (
+      <FilePrompt
+        status={fileStatus}
+        fileName={fileName}
+        onSelect={selectFile}
+        onCreate={createFile}
+        onResume={resumeFile}
+      />
+    )
+  }
 
   // H2: guard against null during state transition
   if (!activeProject) return null
@@ -90,16 +109,22 @@ export default function App() {
             <span className="title-mark">▊</span>
             <h1>投药量计算工具</h1>
           </div>
-          <ProjectSwitcher
-            projects={projects}
-            activeId={activeId}
-            onSwitch={switchProject}
-            onAdd={addProject}
-            onRemove={removeProject}
-            onRename={renameProject}
-            onImport={importProject}
-            onExportJson={() => exportJson(activeProject)}
-          />
+          <div className="header-right">
+            <button className="file-name-chip" onClick={selectFile} title="更换数据文件">
+              <span className="file-name-icon">💾</span>
+              <span className="file-name-text">{fileName}</span>
+            </button>
+            <ProjectSwitcher
+              projects={projects}
+              activeId={activeId}
+              onSwitch={switchProject}
+              onAdd={addProject}
+              onRemove={removeProject}
+              onRename={renameProject}
+              onImport={importProject}
+              onExportJson={() => exportJson(activeProject)}
+            />
+          </div>
         </div>
       </header>
 
