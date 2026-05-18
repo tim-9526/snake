@@ -11,19 +11,19 @@ import { exportExcel } from './utils/exportExcel'
 import { exportJson } from './utils/importData'
 import './App.css'
 
-export default function App({ userId, onSignOut }) {
+export default function App() {
   const {
-    projects, activeProject, activeId, loading,
+    projects, activeProject, activeId,
     storageError, dismissStorageError,
     switchProject, addProject, removeProject, renameProject,
     updateActiveData, importProject,
-  } = useProjects(userId)
+  } = useProjects()
 
   const [showSummary, setShowSummary] = useState(false)
   const [detailTarget, setDetailTarget] = useState(null)
 
-  // H2: guard against null during state transition (also covers initial load)
-  if (loading || !activeProject) return null
+  // H2: guard against null during state transition
+  if (!activeProject) return null
 
   const { settings, warehouses } = activeProject.data
   const actions = makeActions(activeProject.data, updateActiveData)
@@ -90,19 +90,16 @@ export default function App({ userId, onSignOut }) {
             <span className="title-mark">▊</span>
             <h1>投药量计算工具</h1>
           </div>
-          <div className="header-right">
-            <ProjectSwitcher
-              projects={projects}
-              activeId={activeId}
-              onSwitch={switchProject}
-              onAdd={addProject}
-              onRemove={removeProject}
-              onRename={renameProject}
-              onImport={importProject}
-              onExportJson={() => exportJson(activeProject)}
-            />
-            <button className="btn-signout" onClick={onSignOut} title="退出登录">⏏</button>
-          </div>
+          <ProjectSwitcher
+            projects={projects}
+            activeId={activeId}
+            onSwitch={switchProject}
+            onAdd={addProject}
+            onRemove={removeProject}
+            onRename={renameProject}
+            onImport={importProject}
+            onExportJson={() => exportJson(activeProject)}
+          />
         </div>
       </header>
 
