@@ -9,7 +9,7 @@ export default defineConfig({
     include: ['src/**/*.test.{js,jsx}'],
   },
   server: {
-    host: true,
+    host: 'localhost',
   },
   build: {
     // Inline all assets into index.html so it works as a single file

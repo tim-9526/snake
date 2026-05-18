@@ -16,6 +16,22 @@ export const defaultProjectData = () => ({
   warehouses: [defaultWarehouse()],
 })
 
+function clamp(v, min, max, def) {
+  const n = Number(v)
+  return (isNaN(n) || n < min || n > max) ? def : n
+}
+
+function sanitizeSettings(s) {
+  if (!s || typeof s !== 'object') return {}
+  return {
+    density:          clamp(s.density,      0.1, 100,    5),
+    dosePerPoint:     clamp(s.dosePerPoint, 1,   100000, 200),
+    unit:             ['g', 'kg'].includes(s.unit) ? s.unit : 'g',
+    warehouseColName: typeof s.warehouseColName === 'string' ? s.warehouseColName.slice(0, 20) : '仓库',
+    showZones:        typeof s.showZones === 'boolean' ? s.showZones : true,
+  }
+}
+
 function migrateData(data) {
   if (!data) return defaultProjectData()
   const v = data._v ?? 0
@@ -26,6 +42,8 @@ function migrateData(data) {
       warehouses: data.warehouses ?? [],
     }
   }
+  // Sanitize settings on every load to clamp out-of-range values
+  data = { ...data, settings: sanitizeSettings(data.settings) }
   return data
 }
 
@@ -41,6 +59,14 @@ function parseFileData(raw) {
   }
   const activeId = raw.activeId ?? projects[0].id
   return { projects, activeId }
+}
+
+function friendlyFsError(e) {
+  if (e.name === 'NotAllowedError')  return '权限不足，请重新授权文件访问'
+  if (e.name === 'NotFoundError')    return '文件不存在或已被移动'
+  if (e.name === 'NotReadableError') return '文件无法读取，可能已损坏'
+  if (e.name === 'AbortError')       return null  // user cancelled — not an error
+  return '文件操作失败'
 }
 
 // ── Hook ─────────────────────────────────────────────────────────────────────
@@ -72,7 +98,8 @@ export function useProjects() {
       try {
         await fsApi.writeFile(h, { _fv: 1, ...pendingSave.current })
       } catch (e) {
-        setStorageError('文件写入失败：' + e.message)
+        const msg = friendlyFsError(e)
+        if (msg) setStorageError(msg)
       }
     }, SAVE_DEBOUNCE_MS)
   }, [])
@@ -105,7 +132,7 @@ export function useProjects() {
       const perm = await fsApi.queryPermission(handle)
       if (perm === 'granted') {
         try { await applyHandle(handle) }
-        catch (e) { setStorageError(e.message); setFileStatus('no-file') }
+        catch (e) { setStorageError(friendlyFsError(e) ?? '文件读取失败'); setFileStatus('no-file') }
       } else if (perm === 'prompt') {
         setFileHandle(handle)
         setFileName(handle.name)
@@ -126,7 +153,8 @@ export function useProjects() {
       })
       await applyHandle(handle)
     } catch (e) {
-      if (e.name !== 'AbortError') setStorageError('打开文件失败：' + e.message)
+      const msg = friendlyFsError(e)
+      if (msg) setStorageError(msg)
     }
   }
 
@@ -146,7 +174,8 @@ export function useProjects() {
       setFileStatus('ready')
       await fsApi.storeHandle(handle)
     } catch (e) {
-      if (e.name !== 'AbortError') setStorageError('创建文件失败：' + e.message)
+      const msg = friendlyFsError(e)
+      if (msg) setStorageError(msg)
     }
   }
 
@@ -155,7 +184,7 @@ export function useProjects() {
     const perm = await fsApi.requestPermission(fileHandle)
     if (perm === 'granted') {
       try { await applyHandle(fileHandle) }
-      catch (e) { setStorageError(e.message); setFileStatus('no-file') }
+      catch (e) { setStorageError(friendlyFsError(e) ?? '文件读取失败'); setFileStatus('no-file') }
     } else {
       setFileStatus('no-file')
     }

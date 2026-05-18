@@ -31,12 +31,9 @@ export default function ImportButton({ onImport, label = '导入', className = '
     if (ext === 'xlsx' || ext === 'xls') {
       const reader = new FileReader()
       reader.onload = (e) => {
-        try {
-          setPending(importFromExcel(e.target.result))
-          setPendingIsExcel(true)
-        } catch (err) {
-          setError(err.message)
-        }
+        importFromExcel(e.target.result)
+          .then(result => { setPending(result); setPendingIsExcel(true) })
+          .catch(err => setError(err.message))
       }
       reader.readAsArrayBuffer(file)
       return

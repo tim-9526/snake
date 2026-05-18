@@ -1,5 +1,6 @@
-import * as XLSX from 'xlsx'
+import ExcelJS from 'exceljs'
 import { uid } from './uid'
+
 const defaultSegment = (length = '', width = '', height = '') => ({ id: uid(), length, width, height })
 const defaultStack = (code = '') => ({ id: uid(), code, segments: [defaultSegment()] })
 const defaultZone = (name = '') => ({ id: uid(), name, stacks: [] })
@@ -8,6 +9,16 @@ const defaultWarehouse = (name = '') => ({ id: uid(), name, zones: [] })
 function normalizeNum(v) {
   const n = parseFloat(v)
   return isNaN(n) ? '' : n
+}
+
+function cellText(cell) {
+  const v = cell.value
+  if (v === null || v === undefined) return ''
+  if (typeof v === 'object' && v !== null) {
+    if (v.richText) return v.richText.map(r => r.text).join('')
+    if (v.result !== undefined) return String(v.result) // formula cell
+  }
+  return String(v)
 }
 
 /**
@@ -22,13 +33,11 @@ export function importFromJson(text) {
     throw new Error('文件不是有效的 JSON 格式')
   }
 
-  // Full project export: { name, data: { settings, warehouses } }
   if (parsed.data && parsed.data.warehouses) {
     validateProjectData(parsed.data)
     return { name: parsed.name || '导入项目', data: parsed.data }
   }
 
-  // Bare data export: { settings, warehouses }
   if (parsed.warehouses) {
     validateProjectData(parsed)
     return { name: '导入项目', data: parsed }
@@ -43,21 +52,27 @@ function validateProjectData(data) {
 }
 
 /**
- * Import from Excel file (ArrayBuffer).
- * Parses the format produced by exportExcel.js:
- *   Col A: 仓库名  Col B: 垛位编号  Col C: 点数  Col D: 投药量  Col E: 体积
- * We reconstruct warehouses → zones(单区) → stacks from this flat table.
- * Since the Excel format doesn't encode zone structure, each warehouse gets one zone.
+ * Import from Excel file (ArrayBuffer | Buffer).
+ * Uses ExcelJS (no prototype-pollution CVEs).
  */
-export function importFromExcel(arrayBuffer, warehouseColName = '仓库') {
-  const wb = XLSX.read(arrayBuffer, { type: 'array' })
-  const ws = wb.Sheets[wb.SheetNames[0]]
+export async function importFromExcel(arrayBuffer, warehouseColName = '仓库') {
+  const workbook = new ExcelJS.Workbook()
+  await workbook.xlsx.load(arrayBuffer)
+
+  const ws = workbook.worksheets[0]
   if (!ws) throw new Error('Excel 文件中没有工作表')
 
-  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' })
+  const rows = []
+  ws.eachRow((row) => {
+    const cells = []
+    for (let c = 1; c <= row.cellCount; c++) {
+      cells.push(cellText(row.getCell(c)))
+    }
+    rows.push(cells)
+  })
+
   if (rows.length < 2) throw new Error('Excel 数据为空')
 
-  // Validate header: col A must match the warehouse column name
   const headerRow = rows[0]
   const expectedWh = warehouseColName || '仓库'
   if (String(headerRow[0] ?? '').trim() !== expectedWh) {
@@ -72,25 +87,18 @@ export function importFromExcel(arrayBuffer, warehouseColName = '仓库') {
     const colA = String(row[0] ?? '').trim()
     const colBVal = String(row[1] ?? '').trim()
 
-    // Skip totals row
-    if (colA === '总计' || colA === 'total' || colA.toLowerCase() === 'total') continue
-    // Skip empty rows
+    if (colA === '总计' || colA.toLowerCase() === 'total') continue
     if (!colA && !colBVal) continue
 
-    // New warehouse when col A has a value
-    if (colA && colA !== '') {
+    if (colA) {
       const wh = defaultWarehouse(colA)
-      const zone = defaultZone('1区')
-      wh.zones = [zone]
+      wh.zones = [defaultZone('1区')]
       warehouses.push(wh)
       currentWh = wh
     }
 
-    // Stack row when col B has a value
     if (colBVal && currentWh) {
-      const stack = defaultStack(colBVal)
-      // We can't recover original segment dimensions from totals, so leave a blank segment
-      currentWh.zones[0].stacks.push(stack)
+      currentWh.zones[0].stacks.push(defaultStack(colBVal))
     }
   }
 
@@ -99,7 +107,7 @@ export function importFromExcel(arrayBuffer, warehouseColName = '仓库') {
   return {
     name: '导入项目',
     data: {
-      settings: { density: 5, dosePerPoint: 200, unit: 'g', warehouseColName: warehouseColName },
+      settings: { density: 5, dosePerPoint: 200, unit: 'g', warehouseColName },
       warehouses,
     },
   }

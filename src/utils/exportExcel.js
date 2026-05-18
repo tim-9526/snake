@@ -1,19 +1,19 @@
-import * as XLSX from 'xlsx'
+import ExcelJS from 'exceljs'
 import {
   stackVolume, stackDose, stackPoints,
-  zoneVolume, zoneDose, zonePoints,
-  warehouseVolume, warehouseDose, warehousePoints,
+  warehouseDose,
   totalVolume, totalDose, totalPoints,
   formatVolume, formatDose,
 } from './calc'
 
-export function exportExcel(warehouses, settings) {
+export async function exportExcel(warehouses, settings) {
   const { density, dosePerPoint, unit, warehouseColName, showZones } = settings
   const whColName = warehouseColName || '仓库'
   const doseUnit = unit === 'kg' ? 'kg' : 'g'
   const withZones = showZones !== false
 
   const rows = []
+  // merges: 0-based { sr, sc, er, ec } — converted to 1-based when applying
   const merges = []
 
   if (withZones) {
@@ -24,7 +24,6 @@ export function exportExcel(warehouses, settings) {
 
   for (const wh of warehouses) {
     if (withZones) {
-      // ── 显示区列模式 ──────────────────────────────────────
       const whStartRow = rows.length
       const whDose = warehouseDose(wh, density)
       let whTotalRows = 0
@@ -54,17 +53,16 @@ export function exportExcel(warehouses, settings) {
 
         const zoneEndRow = rows.length - 1
         if (zone.stacks.length > 1) {
-          merges.push({ s: { r: zoneStartRow, c: 1 }, e: { r: zoneEndRow, c: 1 } })
+          merges.push({ sr: zoneStartRow, sc: 1, er: zoneEndRow, ec: 1 })
         }
       }
 
       const whEndRow = rows.length - 1
       if (whTotalRows > 1) {
-        merges.push({ s: { r: whStartRow, c: 0 }, e: { r: whEndRow, c: 0 } })
-        merges.push({ s: { r: whStartRow, c: 6 }, e: { r: whEndRow, c: 6 } })
+        merges.push({ sr: whStartRow, sc: 0, er: whEndRow, ec: 0 })
+        merges.push({ sr: whStartRow, sc: 6, er: whEndRow, ec: 6 })
       }
     } else {
-      // ── 单区模式（不显示区列）只取 zone[0] 与 UI 保持一致 ──
       const whStacks = wh.zones[0]?.stacks ?? []
       if (whStacks.length === 0) continue
 
@@ -89,13 +87,12 @@ export function exportExcel(warehouses, settings) {
 
       const whEndRow = rows.length - 1
       if (whStacks.length > 1) {
-        merges.push({ s: { r: whStartRow, c: 0 }, e: { r: whEndRow, c: 0 } })
-        merges.push({ s: { r: whStartRow, c: 5 }, e: { r: whEndRow, c: 5 } })
+        merges.push({ sr: whStartRow, sc: 0, er: whEndRow, ec: 0 })
+        merges.push({ sr: whStartRow, sc: 5, er: whEndRow, ec: 5 })
       }
     }
   }
 
-  // 总计行
   const tVol = totalVolume(warehouses)
   const tDose = totalDose(warehouses, density)
   const tPts = totalPoints(warehouses, density, dosePerPoint)
@@ -106,28 +103,34 @@ export function exportExcel(warehouses, settings) {
     rows.push(['总计', '', tPts, formatDose(tDose, unit), formatVolume(tVol), ''])
   }
 
-  const ws = XLSX.utils.aoa_to_sheet(rows)
-  ws['!merges'] = merges
-  ws['!cols'] = withZones
-    ? [{ wch: 14 }, { wch: 10 }, { wch: 14 }, { wch: 12 }, { wch: 14 }, { wch: 12 }, { wch: 16 }]
-    : [{ wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 14 }, { wch: 12 }, { wch: 16 }]
+  // ── Build workbook ─────────────────────────────────────────────────────────
+  const workbook = new ExcelJS.Workbook()
+  const ws = workbook.addWorksheet('投药计算汇总')
 
-  // 加粗表头行 + 总计行
-  const totalRowIdx = rows.length - 1
-  Object.keys(ws).forEach(key => {
-    if (key.startsWith('!')) return
-    const match = key.match(/[A-Z]+(\d+)/)
-    if (!match) return
-    const rowIdx = parseInt(match[1]) - 1
-    if (rowIdx === 0 || rowIdx === totalRowIdx) {
-      if (!ws[key].s) ws[key].s = {}
-      ws[key].s.font = { bold: true }
-    }
+  ws.columns = withZones
+    ? [14, 10, 14, 12, 14, 12, 16].map(w => ({ width: w }))
+    : [14, 14, 12, 14, 12, 16].map(w => ({ width: w }))
+
+  rows.forEach(row => ws.addRow(row))
+
+  // Apply merges (convert 0-based → 1-based for ExcelJS)
+  merges.forEach(({ sr, sc, er, ec }) => {
+    ws.mergeCells(sr + 1, sc + 1, er + 1, ec + 1)
   })
 
-  const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, '投药计算汇总')
+  // Bold header and totals rows
+  ws.getRow(1).font = { bold: true }
+  ws.getRow(rows.length).font = { bold: true }
 
+  const buffer = await workbook.xlsx.writeBuffer()
+  const blob = new Blob([buffer], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
   const date = new Date().toISOString().slice(0, 10)
-  XLSX.writeFile(wb, `投药计算_${date}.xlsx`)
+  a.href = url
+  a.download = `投药计算_${date}.xlsx`
+  a.click()
+  URL.revokeObjectURL(url)
 }

@@ -84,7 +84,7 @@ export default function App() {
         <SummaryBar
           warehouses={warehouses}
           settings={settings}
-          onExport={() => exportExcel(warehouses, settings)}
+          onExport={() => exportExcel(warehouses, settings).catch(() => {})}
           onShowSummary={() => setShowSummary(true)}
         />
         {showSummary && (
@@ -149,7 +149,7 @@ export default function App() {
       <SummaryBar
         warehouses={warehouses}
         settings={settings}
-        onExport={() => exportExcel(warehouses, settings)}
+        onExport={() => exportExcel(warehouses, settings).catch(() => {})}
         onShowSummary={() => setShowSummary(true)}
       />
 
