@@ -2,6 +2,7 @@ import { useState } from 'react'
 
 export default function GlobalSettings({ settings, onSet }) {
   const [open, setOpen] = useState(false)
+  const showZones = settings.showZones !== false  // default true
 
   return (
     <div className={`global-settings${open ? ' open' : ''}`}>
@@ -56,6 +57,22 @@ export default function GlobalSettings({ settings, onSet }) {
                 onClick={() => onSet('unit', 'kg')}
               >kg</button>
             </div>
+          </div>
+          <div className="field-wrap">
+            <span className="label">区块数量</span>
+            <div className="unit-toggle">
+              <button
+                className={`unit-btn${!showZones ? ' active' : ''}`}
+                onClick={() => onSet('showZones', false)}
+              >0</button>
+              <button
+                className={`unit-btn${showZones ? ' active' : ''}`}
+                onClick={() => onSet('showZones', true)}
+              >≥1</button>
+            </div>
+            <span className="label" style={{ marginTop: 2 }}>
+              {showZones ? '显示区层级，导出含区列' : '单区模式，导出不含区列'}
+            </span>
           </div>
         </div>
       )}

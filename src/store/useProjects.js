@@ -14,7 +14,7 @@ const defaultWarehouse = () => ({ id: uid(), name: '', zones: [defaultZone()] })
 
 export const defaultProjectData = () => ({
   _v: DATA_VERSION,
-  settings: { density: 5, dosePerPoint: 200, unit: 'g', warehouseColName: '仓库' },
+  settings: { density: 5, dosePerPoint: 200, unit: 'g', warehouseColName: '仓库', showZones: true },
   warehouses: [defaultWarehouse()],
 })
 
@@ -31,6 +31,7 @@ function migrateData(data) {
         dosePerPoint: 200,
         unit: 'g',
         warehouseColName: '仓库',
+        showZones: true,
         ...data.settings,
       },
       warehouses: data.warehouses ?? [],
