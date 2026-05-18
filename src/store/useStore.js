@@ -1,4 +1,4 @@
-const uid = () => Math.random().toString(36).slice(2, 9)
+import { uid } from '../utils/uid'
 
 const defaultSegment = () => ({ id: uid(), length: '', width: '', height: '' })
 const defaultStack = () => ({ id: uid(), code: '', segments: [defaultSegment()] })

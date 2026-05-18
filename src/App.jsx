@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useProjects } from './store/useProjects'
 import { makeActions } from './store/useStore'
 import GlobalSettings from './components/GlobalSettings'
@@ -14,18 +14,20 @@ import './App.css'
 export default function App() {
   const {
     projects, activeProject, activeId,
+    storageError, dismissStorageError,
     switchProject, addProject, removeProject, renameProject,
     updateActiveData, importProject,
   } = useProjects()
 
   const [showSummary, setShowSummary] = useState(false)
-  // { whId, zoneId, stackId } | null
   const [detailTarget, setDetailTarget] = useState(null)
+
+  // H2: guard against null during state transition
+  if (!activeProject) return null
 
   const { settings, warehouses } = activeProject.data
   const actions = makeActions(activeProject.data, updateActiveData)
 
-  // resolve stack object for detail view
   const detailStack = detailTarget
     ? warehouses
         .find(w => w.id === detailTarget.whId)
@@ -33,13 +35,14 @@ export default function App() {
         ?.stacks.find(s => s.id === detailTarget.stackId)
     : null
 
-  const detailWh = detailTarget
-    ? warehouses.find(w => w.id === detailTarget.whId)
-    : null
+  const detailWh = detailTarget ? warehouses.find(w => w.id === detailTarget.whId) : null
+  const detailZone = detailTarget ? detailWh?.zones.find(z => z.id === detailTarget.zoneId) : null
 
-  const detailZone = detailTarget
-    ? detailWh?.zones.find(z => z.id === detailTarget.zoneId)
-    : null
+  // M2: auto-clear stale detailTarget when the referenced stack no longer exists
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  useEffect(() => {
+    if (detailTarget && !detailStack) setDetailTarget(null)
+  }, [detailTarget, detailStack])
 
   if (detailTarget && detailStack) {
     return (
@@ -73,6 +76,14 @@ export default function App() {
 
   return (
     <div className="app">
+      {/* M1: localStorage quota error toast */}
+      {storageError && (
+        <div className="storage-error-toast" role="alert">
+          <span>{storageError}</span>
+          <button onClick={dismissStorageError}>×</button>
+        </div>
+      )}
+
       <header className="app-header">
         <div className="header-inner">
           <div className="app-title">

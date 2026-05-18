@@ -22,7 +22,12 @@ export default function ProjectSwitcher({ projects, activeId, onSwitch, onAdd, o
   }
 
   const commitRename = (id) => {
-    if (editName.trim()) onRename(id, editName.trim())
+    const trimmed = editName.trim()
+    if (trimmed) {
+      onRename(id, trimmed)
+    } else {
+      // restore original name visually — do nothing to state, input will snap back
+    }
     setEditingId(null)
   }
 

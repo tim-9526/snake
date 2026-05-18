@@ -30,11 +30,14 @@ export default function GlobalSettings({ settings, onSet }) {
             <span className="label">每点投药量 (g)</span>
             <input
               type="number"
-              min="0"
+              min="1"
               step="1"
               value={settings.dosePerPoint}
-              onChange={e => onSet('dosePerPoint', parseFloat(e.target.value) || 0)}
+              onChange={e => onSet('dosePerPoint', Math.max(1, parseFloat(e.target.value) || 1))}
             />
+            {settings.dosePerPoint <= 0 && (
+              <span className="label" style={{ color: 'var(--color-danger)' }}>须大于 0</span>
+            )}
           </label>
           <label className="field-wrap">
             <span className="label">仓库列名称</span>

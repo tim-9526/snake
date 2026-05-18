@@ -146,4 +146,21 @@ describe('importFromExcel — error cases', () => {
     ]
     expect(() => importFromExcel(makeExcelBuffer(rows))).toThrow('未能从 Excel 中解析出任何仓库数据')
   })
+
+  it('throws when col A header does not match warehouseColName', () => {
+    const rows = [
+      ['随便啥', '垛位', '点数'],
+      ['A库', 'A-01', 1],
+    ]
+    expect(() => importFromExcel(makeExcelBuffer(rows))).toThrow('Excel 格式不匹配')
+  })
+
+  it('accepts custom warehouseColName', () => {
+    const rows = [
+      ['粮库', '垛位', '点数'],
+      ['北库', 'N-01', 1],
+    ]
+    const result = importFromExcel(makeExcelBuffer(rows), '粮库')
+    expect(result.data.warehouses[0].name).toBe('北库')
+  })
 })

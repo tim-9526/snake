@@ -4,7 +4,11 @@ const PASSWORD = 'snake123'
 const SESSION_KEY = 'dose-calc-auth'
 
 export function isAuthenticated() {
-  return sessionStorage.getItem(SESSION_KEY) === '1'
+  try { return sessionStorage.getItem(SESSION_KEY) === '1' } catch { return false }
+}
+
+function markAuthenticated() {
+  try { sessionStorage.setItem(SESSION_KEY, '1') } catch { /* storage blocked (e.g. iOS private browsing in iframe) — gate is purely cosmetic */ }
 }
 
 export default function PasswordGate({ onPass }) {
@@ -14,7 +18,7 @@ export default function PasswordGate({ onPass }) {
 
   const submit = () => {
     if (value === PASSWORD) {
-      sessionStorage.setItem(SESSION_KEY, '1')
+      markAuthenticated()
       onPass()
     } else {
       setError(true)

@@ -1,6 +1,5 @@
 import * as XLSX from 'xlsx'
-
-const uid = () => Math.random().toString(36).slice(2, 9)
+import { uid } from './uid'
 const defaultSegment = (length = '', width = '', height = '') => ({ id: uid(), length, width, height })
 const defaultStack = (code = '') => ({ id: uid(), code, segments: [defaultSegment()] })
 const defaultZone = (name = '') => ({ id: uid(), name, stacks: [] })
@@ -58,10 +57,10 @@ export function importFromExcel(arrayBuffer, warehouseColName = '仓库') {
   const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' })
   if (rows.length < 2) throw new Error('Excel 数据为空')
 
-  // Find header row (first row with the warehouse col name or '仓库')
+  // Validate header: col A must match the warehouse column name
   const headerRow = rows[0]
-  const colB = headerRow[1]
-  if (!colB && headerRow[0] !== warehouseColName && headerRow[0] !== '仓库') {
+  const expectedWh = warehouseColName || '仓库'
+  if (String(headerRow[0] ?? '').trim() !== expectedWh) {
     throw new Error('Excel 格式不匹配，请使用本工具导出的文件')
   }
 

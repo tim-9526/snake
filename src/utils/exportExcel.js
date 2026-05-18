@@ -64,8 +64,8 @@ export function exportExcel(warehouses, settings) {
         merges.push({ s: { r: whStartRow, c: 6 }, e: { r: whEndRow, c: 6 } })
       }
     } else {
-      // ── 单区模式（不显示区列）────────────────────────────
-      const whStacks = wh.zones.flatMap(z => z.stacks)
+      // ── 单区模式（不显示区列）只取 zone[0] 与 UI 保持一致 ──
+      const whStacks = wh.zones[0]?.stacks ?? []
       if (whStacks.length === 0) continue
 
       const whStartRow = rows.length

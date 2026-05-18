@@ -5,7 +5,8 @@ import ImportPreviewModal from './ImportPreviewModal'
 export default function ImportButton({ onImport, label = '导入', className = '' }) {
   const inputRef = useRef(null)
   const [error, setError] = useState(null)
-  const [pending, setPending] = useState(null)  // { name, data } waiting for confirmation
+  const [pending, setPending] = useState(null)   // { name, data } waiting for confirmation
+  const [pendingIsExcel, setPendingIsExcel] = useState(false)
 
   const handleFile = (file) => {
     if (!file) return
@@ -18,6 +19,7 @@ export default function ImportButton({ onImport, label = '导入', className = '
       reader.onload = (e) => {
         try {
           setPending(importFromJson(e.target.result))
+          setPendingIsExcel(false)
         } catch (err) {
           setError(err.message)
         }
@@ -31,6 +33,7 @@ export default function ImportButton({ onImport, label = '导入', className = '
       reader.onload = (e) => {
         try {
           setPending(importFromExcel(e.target.result))
+          setPendingIsExcel(true)
         } catch (err) {
           setError(err.message)
         }
@@ -76,6 +79,7 @@ export default function ImportButton({ onImport, label = '导入', className = '
       {pending && (
         <ImportPreviewModal
           importResult={pending}
+          isExcel={pendingIsExcel}
           onConfirm={handleConfirm}
           onCancel={() => setPending(null)}
         />

@@ -1,11 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
+import { uid } from '../utils/uid'
 
 const PROJECTS_KEY = 'dose-calculator-projects'
 const ACTIVE_KEY = 'dose-calculator-active-project'
 const DATA_VERSION = 1
 const SAVE_DEBOUNCE_MS = 200
-
-const uid = () => Math.random().toString(36).slice(2, 9)
 
 const defaultSegment = () => ({ id: uid(), length: '', width: '', height: '' })
 const defaultStack = () => ({ id: uid(), code: '', segments: [defaultSegment()] })
@@ -22,7 +21,6 @@ function migrateData(data) {
   if (!data) return defaultProjectData()
   const v = data._v ?? 0
 
-  // v0 → v1: add _v field; settings shape is compatible, no structural changes
   if (v < 1) {
     data = {
       _v: 1,
@@ -57,11 +55,16 @@ function loadProjects() {
 }
 
 function loadActiveId() {
-  return localStorage.getItem(ACTIVE_KEY) || null
+  try { return localStorage.getItem(ACTIVE_KEY) || null } catch { return null }
 }
 
-function saveProjects(projects) {
-  try { localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects)) } catch {}
+// M1: surface storage errors instead of silently swallowing them
+function saveProjects(projects, onError) {
+  try {
+    localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects))
+  } catch (e) {
+    onError?.('存储空间不足，最新数据未能保存，请导出 JSON 备份')
+  }
 }
 
 function saveActiveId(id) {
@@ -85,6 +88,9 @@ export function useProjects() {
     return null
   })
 
+  // M1: expose storage error to UI
+  const [storageError, setStorageError] = useState(null)
+
   // sync activeId on first render when projects were freshly created
   useEffect(() => {
     if (!activeId && projects.length > 0) {
@@ -96,20 +102,25 @@ export function useProjects() {
   const saveTimer = useRef(null)
   useEffect(() => {
     clearTimeout(saveTimer.current)
-    saveTimer.current = setTimeout(() => saveProjects(projects), SAVE_DEBOUNCE_MS)
+    saveTimer.current = setTimeout(
+      () => saveProjects(projects, setStorageError),
+      SAVE_DEBOUNCE_MS,
+    )
     return () => clearTimeout(saveTimer.current)
   }, [projects])
 
   useEffect(() => { if (activeId) saveActiveId(activeId) }, [activeId])
 
-  const activeProject = projects.find(p => p.id === activeId) ?? projects[0]
+  // H2: guard against undefined during state transitions
+  const activeProject = projects.find(p => p.id === activeId) ?? projects[0] ?? null
 
+  // H1: use activeId inside updater, not stale activeProject closure
   const updateActiveData = (updater) => {
-    setProjects(prev => prev.map(p =>
-      p.id === activeProject.id
-        ? { ...p, data: updater(p.data) }
-        : p
-    ))
+    setProjects(prev => {
+      const target = prev.find(p => p.id === activeId)
+      if (!target) return prev
+      return prev.map(p => p.id === activeId ? { ...p, data: updater(p.data) } : p)
+    })
   }
 
   const addProject = (name) => {
@@ -143,16 +154,17 @@ export function useProjects() {
     setActiveId(p.id)
   }
 
+  // H1: same fix for replaceActiveData
   const replaceActiveData = (data) => {
-    setProjects(prev => prev.map(p =>
-      p.id === activeProject.id ? { ...p, data } : p
-    ))
+    setProjects(prev => prev.map(p => p.id === activeId ? { ...p, data } : p))
   }
 
   return {
     projects,
     activeProject,
     activeId,
+    storageError,
+    dismissStorageError: () => setStorageError(null),
     switchProject,
     addProject,
     removeProject,

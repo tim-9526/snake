@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 
-export default function ImportPreviewModal({ importResult, onConfirm, onCancel }) {
+export default function ImportPreviewModal({ importResult, onConfirm, onCancel, isExcel = false }) {
   const [name, setName] = useState(importResult.name || '导入项目')
 
   useEffect(() => {
@@ -54,6 +54,12 @@ export default function ImportPreviewModal({ importResult, onConfirm, onCancel }
               <div className="preview-wh-row muted">… 还有 {warehouses.length - 5} 个库</div>
             )}
           </div>
+
+          {isExcel && (
+            <div className="import-excel-warn" role="alert">
+              ⚠ Excel 导入仅还原库名和垛位编号，分段尺寸数据无法恢复，所有计算结果将为 0，需重新录入。建议使用 JSON 备份以保留完整数据。
+            </div>
+          )}
 
           <label className="import-name-label">
             <span className="label">项目名称</span>
