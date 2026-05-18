@@ -11,19 +11,19 @@ import { exportExcel } from './utils/exportExcel'
 import { exportJson } from './utils/importData'
 import './App.css'
 
-export default function App() {
+export default function App({ userId, onSignOut }) {
   const {
-    projects, activeProject, activeId,
+    projects, activeProject, activeId, loading,
     storageError, dismissStorageError,
     switchProject, addProject, removeProject, renameProject,
     updateActiveData, importProject,
-  } = useProjects()
+  } = useProjects(userId)
 
   const [showSummary, setShowSummary] = useState(false)
   const [detailTarget, setDetailTarget] = useState(null)
 
-  // H2: guard against null during state transition
-  if (!activeProject) return null
+  // H2: guard against null during state transition (also covers initial load)
+  if (loading || !activeProject) return null
 
   const { settings, warehouses } = activeProject.data
   const actions = makeActions(activeProject.data, updateActiveData)
@@ -90,16 +90,19 @@ export default function App() {
             <span className="title-mark">▊</span>
             <h1>投药量计算工具</h1>
           </div>
-          <ProjectSwitcher
-            projects={projects}
-            activeId={activeId}
-            onSwitch={switchProject}
-            onAdd={addProject}
-            onRemove={removeProject}
-            onRename={renameProject}
-            onImport={importProject}
-            onExportJson={() => exportJson(activeProject)}
-          />
+          <div className="header-right">
+            <ProjectSwitcher
+              projects={projects}
+              activeId={activeId}
+              onSwitch={switchProject}
+              onAdd={addProject}
+              onRemove={removeProject}
+              onRename={renameProject}
+              onImport={importProject}
+              onExportJson={() => exportJson(activeProject)}
+            />
+            <button className="btn-signout" onClick={onSignOut} title="退出登录">⏏</button>
+          </div>
         </div>
       </header>
 
