@@ -1,0 +1,145 @@
+@import './tokens.css';
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--color-bg);
+  color: var(--color-text);
+  min-height: 100vh;
+  line-height: 1.5;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+input[type="number"],
+input[type="text"] {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-2);
+  width: 100%;
+  transition: border-color var(--duration-fast);
+  outline: none;
+}
+
+input[type="number"]:focus,
+input[type="text"]:focus {
+  border-color: var(--color-accent);
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  opacity: 0.4;
+}
+
+button {
+  font-family: var(--font-sans);
+  cursor: pointer;
+  border: none;
+  border-radius: var(--radius-sm);
+  transition: background var(--duration-fast), color var(--duration-fast), opacity var(--duration-fast);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+button:active {
+  opacity: 0.8;
+}
+
+.btn-primary {
+  background: var(--color-accent);
+  color: #111;
+  padding: var(--space-2) var(--space-4);
+}
+
+.btn-primary:hover {
+  background: var(--color-accent-hover);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--color-text-muted);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-border);
+}
+
+.btn-ghost:hover {
+  color: var(--color-text);
+  border-color: var(--color-border-light);
+}
+
+.btn-danger {
+  background: transparent;
+  color: var(--color-danger);
+  padding: var(--space-1) var(--space-2);
+}
+
+.btn-danger:hover {
+  background: var(--color-danger-dim);
+}
+
+.btn-add {
+  background: var(--color-accent-dim);
+  color: var(--color-accent);
+  padding: var(--space-1) var(--space-3);
+  border: 1px dashed rgba(232,212,77,0.3);
+  width: 100%;
+  justify-content: center;
+}
+
+.btn-add:hover {
+  background: rgba(232,212,77,0.18);
+}
+
+.label {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+}
+
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ====== MOBILE / iOS ====== */
+@media (max-width: 600px) {
+  input[type="number"],
+  input[type="text"] {
+    font-size: 16px; /* prevent iOS auto-zoom */
+    padding: 8px 10px;
+  }
+
+  button {
+    min-height: 40px; /* comfortable tap target */
+  }
+}
+
+/* Safe area insets for iPhone notch / home bar */
+@supports (padding: env(safe-area-inset-bottom)) {
+  body {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
