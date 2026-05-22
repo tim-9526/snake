@@ -8,6 +8,7 @@ import SummaryBar from './components/SummaryBar'
 import SummaryModal from './components/SummaryModal'
 import ProjectSwitcher from './components/ProjectSwitcher'
 import FilePrompt from './components/FilePrompt'
+import WarehouseMap from './components/WarehouseMap'
 import { exportExcel } from './utils/exportExcel'
 import { exportJson } from './utils/importData'
 import './App.css'
@@ -23,6 +24,7 @@ export default function App() {
   } = useProjects()
 
   const [showSummary, setShowSummary] = useState(false)
+  const [showMap, setShowMap] = useState(false)
   const [detailTarget, setDetailTarget] = useState(null)
 
   // Derive these safely even when activeProject is null
@@ -116,6 +118,10 @@ export default function App() {
             <h1>投药量计算工具</h1>
           </div>
           <div className="header-right">
+            <button className="file-name-chip" onClick={() => setShowMap(true)} title="垛位图工具" style={{ gap: 6 }}>
+              <span>⊞</span>
+              <span className="file-name-text">垛位图</span>
+            </button>
             <button className="file-name-chip" onClick={selectFile} title="更换数据文件">
               <span className="file-name-icon">💾</span>
               <span className="file-name-text">{fileName}</span>
@@ -160,6 +166,8 @@ export default function App() {
           onClose={() => setShowSummary(false)}
         />
       )}
+
+      {showMap && <WarehouseMap onClose={() => setShowMap(false)} />}
     </div>
   )
 }
