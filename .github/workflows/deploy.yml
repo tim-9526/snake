@@ -36,9 +36,9 @@ jobs:
 
       - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b  # v4.0.0
 
-      - uses: actions/upload-pages-artifact@56afc609e74202658d3b0910bf08a1c66166af4e  # v3.0.1
+      - uses: actions/upload-pages-artifact@v3
         with:
           path: ./dist
 
       - id: deployment
-        uses: actions/deploy-pages@d6f5e355f0e207d1b788337a4e0f4f8e42b1bdca  # v4.0.5
+        uses: actions/deploy-pages@v4
