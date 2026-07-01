@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { uid } from '../utils/uid'
 import * as fsApi from '../lib/fileStorage'
+import * as lsApi from '../lib/localStorage'
 
 const DATA_VERSION = 1
 const SAVE_DEBOUNCE_MS = 600
@@ -71,14 +72,27 @@ function friendlyFsError(e) {
 
 // ── Hook ─────────────────────────────────────────────────────────────────────
 
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+function isFsApiSupported() {
+  return fsApi.isSupported()
+}
+
+function isLocalStorageSupported() {
+  return lsApi.isSupported()
+}
+
+// ── Hook ─────────────────────────────────────────────────────────────────────
+
 export function useProjects() {
-  // 'init' | 'no-file' | 'permission-needed' | 'ready' | 'not-supported'
+  // 'init' | 'no-file' | 'permission-needed' | 'ready' | 'not-supported' | 'ls-ready' | 'ls-no-file'
   const [fileStatus, setFileStatus] = useState('init')
   const [fileHandle, setFileHandle] = useState(null)
   const [fileName, setFileName] = useState('')
   const [projects, setProjects] = useState([])
   const [activeId, setActiveId] = useState(null)
   const [storageError, setStorageError] = useState(null)
+  const [usingLocalStorage, setUsingLocalStorage] = useState(false)
 
   const handleRef = useRef(null)
   const saveTimer = useRef(null)
@@ -87,29 +101,35 @@ export function useProjects() {
 
   useEffect(() => { handleRef.current = fileHandle }, [fileHandle])
 
-  // ── File I/O ──────────────────────────────────────────────────────────────
+  // ── File I/O (File System API) ────────────────────────────────────────────
 
   const scheduleSave = useCallback((prjs, aid) => {
     pendingSave.current = { projects: prjs, activeId: aid }
     clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(async () => {
+      if (!pendingSave.current) return
       const h = handleRef.current
-      if (!h || !pendingSave.current) return
-      try {
-        await fsApi.writeFile(h, { _fv: 1, ...pendingSave.current })
-      } catch (e) {
-        const msg = friendlyFsError(e)
-        if (msg) setStorageError(msg)
+      if (h) {
+        // File System API mode
+        try {
+          await fsApi.writeFile(h, { _fv: 1, ...pendingSave.current })
+        } catch (e) {
+          const msg = friendlyFsError(e)
+          if (msg) setStorageError(msg)
+        }
+      } else if (usingLocalStorage) {
+        // localStorage fallback mode
+        lsApi.writeLocal({ _fv: 1, ...pendingSave.current })
       }
     }, SAVE_DEBOUNCE_MS)
-  }, [])
+  }, [usingLocalStorage])
 
   // save on data change (skip the render that came from loading)
   useEffect(() => {
-    if (fileStatus !== 'ready') return
+    if (fileStatus !== 'ready' && fileStatus !== 'ls-ready') return
     if (justLoaded.current) { justLoaded.current = false; return }
     scheduleSave(projects, activeId)
-  }, [projects, activeId, fileStatus])
+  }, [projects, activeId, fileStatus, scheduleSave])
 
   async function applyHandle(handle) {
     const raw = await fsApi.readFile(handle)
@@ -119,63 +139,135 @@ export function useProjects() {
     setActiveId(aid)
     setFileHandle(handle)
     setFileName(handle.name)
+    setUsingLocalStorage(false)
     setFileStatus('ready')
     await fsApi.storeHandle(handle)
+  }
+
+  function applyLocalData(data) {
+    const { projects: prjs, activeId: aid } = parseFileData(data ?? null)
+    justLoaded.current = true
+    setProjects(prjs)
+    setActiveId(aid)
+    setFileHandle(null)
+    setFileName(lsApi.getFileName())
+    setUsingLocalStorage(true)
+    setFileStatus('ls-ready')
   }
 
   // ── Startup ───────────────────────────────────────────────────────────────
 
   useEffect(() => {
-    if (!fsApi.isSupported()) { setFileStatus('not-supported'); return }
-    fsApi.getStoredHandle().then(async handle => {
-      if (!handle) { setFileStatus('no-file'); return }
-      const perm = await fsApi.queryPermission(handle)
-      if (perm === 'granted') {
-        try { await applyHandle(handle) }
-        catch (e) { setStorageError(friendlyFsError(e) ?? '文件读取失败'); setFileStatus('no-file') }
-      } else if (perm === 'prompt') {
-        setFileHandle(handle)
-        setFileName(handle.name)
-        setFileStatus('permission-needed')
-      } else {
-        setFileStatus('no-file')
-      }
-    })
+    // Priority 1: File System API
+    if (isFsApiSupported()) {
+      fsApi.getStoredHandle().then(async handle => {
+        if (!handle) { setFileStatus('no-file'); return }
+        const perm = await fsApi.queryPermission(handle)
+        if (perm === 'granted') {
+          try { await applyHandle(handle) }
+          catch (e) { setStorageError(friendlyFsError(e) ?? '文件读取失败'); fallbackToLocalStorage() }
+        } else if (perm === 'prompt') {
+          setFileHandle(handle)
+          setFileName(handle.name)
+          setFileStatus('permission-needed')
+        } else {
+          fallbackToLocalStorage()
+        }
+      })
+    } else if (isLocalStorageSupported()) {
+      // Priority 2: localStorage fallback (mobile browsers etc.)
+      fallbackToLocalStorage()
+    } else {
+      setFileStatus('not-supported')
+    }
   }, [])
+
+  function fallbackToLocalStorage() {
+    const data = lsApi.readLocal()
+    if (data) {
+      applyLocalData(data)
+    } else {
+      setFileStatus('ls-no-file')
+    }
+  }
 
   // ── User actions ──────────────────────────────────────────────────────────
 
   const selectFile = async () => {
-    try {
-      const [handle] = await window.showOpenFilePicker({
-        types: [{ description: '数据文件', accept: { 'application/json': ['.json'] } }],
-        multiple: false,
-      })
-      await applyHandle(handle)
-    } catch (e) {
-      const msg = friendlyFsError(e)
-      if (msg) setStorageError(msg)
+    if (isFsApiSupported()) {
+      try {
+        const [handle] = await window.showOpenFilePicker({
+          types: [{ description: '数据文件', accept: { 'application/json': ['.json'] } }],
+          multiple: false,
+        })
+        await applyHandle(handle)
+      } catch (e) {
+        const msg = friendlyFsError(e)
+        if (msg) setStorageError(msg)
+      }
+    } else if (isLocalStorageSupported()) {
+      // In localStorage mode, show a file input to import
+      const input = document.createElement('input')
+      input.type = 'file'
+      input.accept = '.json'
+      input.onchange = async () => {
+        const file = input.files?.[0]
+        if (!file) return
+        try {
+          const text = await file.text()
+          const parsed = JSON.parse(text)
+          const { projects: prjs, activeId: aid } = parseFileData(parsed)
+          justLoaded.current = true
+          setProjects(prjs)
+          setActiveId(aid)
+          setFileHandle(null)
+          setUsingLocalStorage(true)
+          setFileName(file.name.replace(/\.json$/i, ''))
+          setFileStatus('ls-ready')
+          lsApi.setFileName(file.name.replace(/\.json$/i, ''))
+          lsApi.writeLocal({ _fv: 1, projects: prjs, activeId: aid })
+        } catch {
+          setStorageError('文件解析失败，请选择有效的 JSON 数据文件')
+        }
+      }
+      input.click()
     }
   }
 
   const createFile = async () => {
-    try {
-      const handle = await window.showSaveFilePicker({
-        suggestedName: '投药量数据.json',
-        types: [{ description: '数据文件', accept: { 'application/json': ['.json'] } }],
-      })
+    if (isFsApiSupported()) {
+      try {
+        const handle = await window.showSaveFilePicker({
+          suggestedName: '投药量数据.json',
+          types: [{ description: '数据文件', accept: { 'application/json': ['.json'] } }],
+        })
+        const fresh = newProject('项目 1')
+        await fsApi.writeFile(handle, { _fv: 1, activeId: fresh.id, projects: [fresh] })
+        justLoaded.current = true
+        setProjects([fresh])
+        setActiveId(fresh.id)
+        setFileHandle(handle)
+        setFileName(handle.name)
+        setUsingLocalStorage(false)
+        setFileStatus('ready')
+        await fsApi.storeHandle(handle)
+      } catch (e) {
+        const msg = friendlyFsError(e)
+        if (msg) setStorageError(msg)
+      }
+    } else if (isLocalStorageSupported()) {
+      // In localStorage mode, create directly in localStorage
       const fresh = newProject('项目 1')
-      await fsApi.writeFile(handle, { _fv: 1, activeId: fresh.id, projects: [fresh] })
+      const fileName = '本地存储'
+      lsApi.writeLocal({ _fv: 1, projects: [fresh], activeId: fresh.id })
+      lsApi.setFileName(fileName)
       justLoaded.current = true
       setProjects([fresh])
       setActiveId(fresh.id)
-      setFileHandle(handle)
-      setFileName(handle.name)
-      setFileStatus('ready')
-      await fsApi.storeHandle(handle)
-    } catch (e) {
-      const msg = friendlyFsError(e)
-      if (msg) setStorageError(msg)
+      setFileHandle(null)
+      setUsingLocalStorage(true)
+      setFileName(fileName)
+      setFileStatus('ls-ready')
     }
   }
 
@@ -241,6 +333,7 @@ export function useProjects() {
     projects, activeProject, activeId,
     fileStatus, fileName,
     storageError, dismissStorageError: () => setStorageError(null),
+    usingLocalStorage,
     selectFile, createFile, resumeFile,
     switchProject, addProject, removeProject, renameProject,
     updateActiveData, replaceActiveData, importProject,

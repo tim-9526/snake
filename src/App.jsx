@@ -53,7 +53,7 @@ export default function App() {
     return <div className="auth-loading"><span className="auth-loading-dot" /></div>
   }
 
-  if (fileStatus !== 'ready') {
+  if (fileStatus !== 'ready' && fileStatus !== 'ls-ready') {
     return (
       <FilePrompt
         status={fileStatus}

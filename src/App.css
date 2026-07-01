@@ -1156,6 +1156,13 @@ button {
   margin: 0;
 }
 
+.gate-hint {
+  font-size: 0.75rem;
+  color: var(--color-text-dim);
+  margin: -8px 0 0;
+  text-align: center;
+}
+
 .gate-field {
   display: flex;
   flex-direction: column;

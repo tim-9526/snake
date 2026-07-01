@@ -5,7 +5,8 @@ export default function FilePrompt({ status, fileName, onSelect, onCreate, onRes
         <div className="gate-panel">
           <div className="gate-icon">▊</div>
           <h1 className="gate-title">投药量计算工具</h1>
-          <p className="gate-subtitle">请使用 Chrome 或 Edge 浏览器打开本工具</p>
+          <p className="gate-subtitle">当前浏览器不支持文件 API</p>
+          <p className="gate-hint">请使用 Chrome、Edge 或 Safari 浏览器</p>
         </div>
       </div>
     )
@@ -21,6 +22,21 @@ export default function FilePrompt({ status, fileName, onSelect, onCreate, onRes
           <p className="file-prompt-name">{fileName}</p>
           <button className="gate-btn" onClick={onResume}>继续使用此文件</button>
           <button className="gate-btn gate-btn-ghost" onClick={onSelect}>打开其他文件</button>
+        </div>
+      </div>
+    )
+  }
+
+  if (status === 'ls-no-file') {
+    return (
+      <div className="gate-backdrop">
+        <div className="gate-panel">
+          <div className="gate-icon">▊</div>
+          <h1 className="gate-title">投药量计算工具</h1>
+          <p className="gate-subtitle">数据保存在本地浏览器中</p>
+          <p className="gate-hint">新建项目即可开始使用，或从文件导入已有数据</p>
+          <button className="gate-btn" onClick={onCreate}>新建数据</button>
+          <button className="gate-btn gate-btn-ghost" onClick={onSelect}>从文件导入</button>
         </div>
       </div>
     )
