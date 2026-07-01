@@ -188,7 +188,11 @@ export default function App() {
 
       {showMap && (
         <Suspense fallback={<div className="wm-loading"><span className="auth-loading-dot" /></div>}>
-          <WarehouseMap onClose={() => setShowMap(false)} />
+          <WarehouseMap
+            onClose={() => setShowMap(false)}
+            warehouses={warehouses}
+            settings={settings}
+          />
         </Suspense>
       )}
     </div>

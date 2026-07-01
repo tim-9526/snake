@@ -3,16 +3,18 @@ import { useHistory } from './useHistory.js'
 import { DEMO_SHAPES } from './constants.js'
 import DrawPanel from './DrawPanel.jsx'
 import AutoPanel from './AutoPanel.jsx'
+import DataPanel from './DataPanel.jsx'
 import IoPanel from './IoPanel.jsx'
 import './WarehouseMap.css'
 
 const TABS = [
   { id: 'draw', label: '手绘模式' },
   { id: 'auto', label: '自动生成' },
+  { id: 'data', label: '从数据生成' },
   { id: 'io',   label: '导入 / 导出' },
 ]
 
-export default function WarehouseMap({ onClose }) {
+export default function WarehouseMap({ onClose, warehouses, settings }) {
   const [tab, setTab] = useState('draw')
   const { shapes, push, undo, reset } = useHistory(DEMO_SHAPES)
 
@@ -52,6 +54,13 @@ export default function WarehouseMap({ onClose }) {
           )}
           {tab === 'auto' && (
             <AutoPanel onGenerate={handleAutoGenerate} />
+          )}
+          {tab === 'data' && (
+            <DataPanel
+              warehouses={warehouses}
+              settings={settings}
+              onGenerate={handleAutoGenerate}
+            />
           )}
           {tab === 'io' && (
             <IoPanel shapes={shapes} onImport={handleImport} />
