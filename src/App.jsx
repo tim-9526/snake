@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { useProjects } from './store/useProjects'
 import { makeActions } from './store/useStore'
 import GlobalSettings from './components/GlobalSettings'
@@ -8,10 +8,9 @@ import SummaryBar from './components/SummaryBar'
 import SummaryModal from './components/SummaryModal'
 import ProjectSwitcher from './components/ProjectSwitcher'
 import FilePrompt from './components/FilePrompt'
-import WarehouseMap from './components/WarehouseMap'
-import { exportExcel } from './utils/exportExcel'
-import { exportJson } from './utils/importData'
 import './App.css'
+
+const WarehouseMap = lazy(() => import('./components/WarehouseMap'))
 
 export default function App() {
   const {
@@ -26,6 +25,21 @@ export default function App() {
   const [showSummary, setShowSummary] = useState(false)
   const [showMap, setShowMap] = useState(false)
   const [detailTarget, setDetailTarget] = useState(null)
+  const [exporting, setExporting] = useState(false)
+
+  // ── Lazy export (ExcelJS is heavy — load on demand) ───────────────────────
+  const handleExport = async () => {
+    if (exporting) return
+    setExporting(true)
+    try {
+      const { exportExcel } = await import('./utils/exportExcel')
+      await exportExcel(warehouses, settings)
+    } catch {
+      /* handled inside exportExcel */
+    } finally {
+      setExporting(false)
+    }
+  }
 
   // Derive these safely even when activeProject is null
   const warehouses = activeProject?.data.warehouses ?? []
@@ -86,8 +100,9 @@ export default function App() {
         <SummaryBar
           warehouses={warehouses}
           settings={settings}
-          onExport={() => exportExcel(warehouses, settings).catch(() => {})}
+          onExport={handleExport}
           onShowSummary={() => setShowSummary(true)}
+          exporting={exporting}
         />
         {showSummary && (
           <SummaryModal
@@ -134,7 +149,10 @@ export default function App() {
               onRemove={removeProject}
               onRename={renameProject}
               onImport={importProject}
-              onExportJson={() => exportJson(activeProject)}
+              onExportJson={async () => {
+                const { exportJson } = await import('./utils/importData')
+                exportJson(activeProject)
+              }}
             />
           </div>
         </div>
@@ -155,8 +173,9 @@ export default function App() {
       <SummaryBar
         warehouses={warehouses}
         settings={settings}
-        onExport={() => exportExcel(warehouses, settings).catch(() => {})}
+        onExport={handleExport}
         onShowSummary={() => setShowSummary(true)}
+        exporting={exporting}
       />
 
       {showSummary && (
@@ -167,7 +186,11 @@ export default function App() {
         />
       )}
 
-      {showMap && <WarehouseMap onClose={() => setShowMap(false)} />}
+      {showMap && (
+        <Suspense fallback={<div className="wm-loading"><span className="auth-loading-dot" /></div>}>
+          <WarehouseMap onClose={() => setShowMap(false)} />
+        </Suspense>
+      )}
     </div>
   )
 }

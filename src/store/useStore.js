@@ -1,3 +1,4 @@
+import { produce } from 'immer'
 import { uid } from '../utils/uid'
 
 const defaultSegment = () => ({ id: uid(), length: '', width: '', height: '' })
@@ -5,43 +6,69 @@ const defaultStack = () => ({ id: uid(), code: '', segments: [defaultSegment()] 
 const defaultZone = () => ({ id: uid(), name: '', stacks: [defaultStack()] })
 const defaultWarehouse = () => ({ id: uid(), name: '', zones: [defaultZone()] })
 
-function update(data, updater) {
-  return updater(data)
-}
-
 export function makeActions(data, updateData) {
-  const set = (updater) => updateData(d => updater(d))
+  const set = (updater) => updateData(d => produce(d, updater))
 
   return {
     setSetting: (key, value) =>
-      set(d => ({ ...d, settings: { ...d.settings, [key]: value } })),
+      set(draft => { draft.settings[key] = value }),
 
     addWarehouse: () =>
-      set(d => ({ ...d, warehouses: [...d.warehouses, defaultWarehouse()] })),
+      set(draft => { draft.warehouses.push(defaultWarehouse()) }),
     removeWarehouse: (whId) =>
-      set(d => ({ ...d, warehouses: d.warehouses.filter(w => w.id !== whId) })),
+      set(draft => { draft.warehouses = draft.warehouses.filter(w => w.id !== whId) }),
     updateWarehouse: (whId, key, value) =>
-      set(d => ({ ...d, warehouses: d.warehouses.map(w => w.id === whId ? { ...w, [key]: value } : w) })),
+      set(draft => {
+        const wh = draft.warehouses.find(w => w.id === whId)
+        if (wh) wh[key] = value
+      }),
 
     addZone: (whId) =>
-      set(d => ({ ...d, warehouses: d.warehouses.map(w => w.id === whId ? { ...w, zones: [...w.zones, defaultZone()] } : w) })),
+      set(draft => {
+        const wh = draft.warehouses.find(w => w.id === whId)
+        if (wh) wh.zones.push(defaultZone())
+      }),
     removeZone: (whId, zoneId) =>
-      set(d => ({ ...d, warehouses: d.warehouses.map(w => w.id === whId ? { ...w, zones: w.zones.filter(z => z.id !== zoneId) } : w) })),
+      set(draft => {
+        const wh = draft.warehouses.find(w => w.id === whId)
+        if (wh) wh.zones = wh.zones.filter(z => z.id !== zoneId)
+      }),
     updateZone: (whId, zoneId, key, value) =>
-      set(d => ({ ...d, warehouses: d.warehouses.map(w => w.id === whId ? { ...w, zones: w.zones.map(z => z.id === zoneId ? { ...z, [key]: value } : z) } : w) })),
+      set(draft => {
+        const zone = draft.warehouses.find(w => w.id === whId)?.zones.find(z => z.id === zoneId)
+        if (zone) zone[key] = value
+      }),
 
     addStack: (whId, zoneId) =>
-      set(d => ({ ...d, warehouses: d.warehouses.map(w => w.id === whId ? { ...w, zones: w.zones.map(z => z.id === zoneId ? { ...z, stacks: [...z.stacks, defaultStack()] } : z) } : w) })),
+      set(draft => {
+        const zone = draft.warehouses.find(w => w.id === whId)?.zones.find(z => z.id === zoneId)
+        if (zone) zone.stacks.push(defaultStack())
+      }),
     removeStack: (whId, zoneId, stackId) =>
-      set(d => ({ ...d, warehouses: d.warehouses.map(w => w.id === whId ? { ...w, zones: w.zones.map(z => z.id === zoneId ? { ...z, stacks: z.stacks.filter(s => s.id !== stackId) } : z) } : w) })),
+      set(draft => {
+        const zone = draft.warehouses.find(w => w.id === whId)?.zones.find(z => z.id === zoneId)
+        if (zone) zone.stacks = zone.stacks.filter(s => s.id !== stackId)
+      }),
     updateStack: (whId, zoneId, stackId, key, value) =>
-      set(d => ({ ...d, warehouses: d.warehouses.map(w => w.id === whId ? { ...w, zones: w.zones.map(z => z.id === zoneId ? { ...z, stacks: z.stacks.map(s => s.id === stackId ? { ...s, [key]: value } : s) } : z) } : w) })),
+      set(draft => {
+        const stack = draft.warehouses.find(w => w.id === whId)?.zones.find(z => z.id === zoneId)?.stacks.find(s => s.id === stackId)
+        if (stack) stack[key] = value
+      }),
 
     addSegment: (whId, zoneId, stackId) =>
-      set(d => ({ ...d, warehouses: d.warehouses.map(w => w.id === whId ? { ...w, zones: w.zones.map(z => z.id === zoneId ? { ...z, stacks: z.stacks.map(s => s.id === stackId ? { ...s, segments: [...s.segments, defaultSegment()] } : s) } : z) } : w) })),
+      set(draft => {
+        const stack = draft.warehouses.find(w => w.id === whId)?.zones.find(z => z.id === zoneId)?.stacks.find(s => s.id === stackId)
+        if (stack) stack.segments.push(defaultSegment())
+      }),
     removeSegment: (whId, zoneId, stackId, segId) =>
-      set(d => ({ ...d, warehouses: d.warehouses.map(w => w.id === whId ? { ...w, zones: w.zones.map(z => z.id === zoneId ? { ...z, stacks: z.stacks.map(s => s.id === stackId ? { ...s, segments: s.segments.filter(seg => seg.id !== segId) } : s) } : z) } : w) })),
+      set(draft => {
+        const stack = draft.warehouses.find(w => w.id === whId)?.zones.find(z => z.id === zoneId)?.stacks.find(s => s.id === stackId)
+        if (stack) stack.segments = stack.segments.filter(seg => seg.id !== segId)
+      }),
     updateSegment: (whId, zoneId, stackId, segId, key, value) =>
-      set(d => ({ ...d, warehouses: d.warehouses.map(w => w.id === whId ? { ...w, zones: w.zones.map(z => z.id === zoneId ? { ...z, stacks: z.stacks.map(s => s.id === stackId ? { ...s, segments: s.segments.map(seg => seg.id === segId ? { ...seg, [key]: value } : seg) } : s) } : z) } : w) })),
+      set(draft => {
+        const seg = draft.warehouses.find(w => w.id === whId)?.zones.find(z => z.id === zoneId)?.stacks.find(s => s.id === stackId)?.segments.find(seg => seg.id === segId)
+        if (seg) seg[key] = value
+      }),
   }
 }

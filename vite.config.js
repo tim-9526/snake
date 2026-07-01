@@ -12,13 +12,12 @@ export default defineConfig({
     host: 'localhost',
   },
   build: {
-    // Inline all assets into index.html so it works as a single file
+    // Inline small assets; let dynamic imports split naturally
     assetsInlineLimit: 100 * 1024 * 1024,
     rollupOptions: {
       output: {
-        // Single chunk — no code splitting
         manualChunks: undefined,
-        inlineDynamicImports: true,
+        // REMOVED inlineDynamicImports: true — allows code splitting for lazy imports
       },
     },
   },

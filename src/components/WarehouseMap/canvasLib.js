@@ -92,12 +92,15 @@ export function drawShape(ctx, s, selected) {
 
 const DRAW_ORDER = ['area', 'aisle', 'shelf', 'slot', 'port']
 
-export function renderAll(ctx, W, H, shapes, selected) {
-  ctx.clearRect(0, 0, W, H)
+export function renderAll(ctx, W, H, shapes, selected, dpr = 1) {
+  ctx.clearRect(0, 0, W * dpr, H * dpr)
+  ctx.save()
+  if (dpr !== 1) ctx.scale(dpr, dpr)
   drawGrid(ctx, W, H)
   ;[...shapes]
     .sort((a, b) => DRAW_ORDER.indexOf(a.type) - DRAW_ORDER.indexOf(b.type))
     .forEach(s => drawShape(ctx, s, s === selected))
+  ctx.restore()
 }
 
 const HIT_ORDER = ['port', 'slot', 'shelf', 'aisle', 'area']

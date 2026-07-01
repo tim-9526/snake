@@ -1,6 +1,6 @@
 import { totalVolume, totalDose, totalPoints, formatDose, formatVolume } from '../utils/calc'
 
-export default function SummaryBar({ warehouses, settings, onExport, onShowSummary }) {
+export default function SummaryBar({ warehouses, settings, onExport, onShowSummary, exporting }) {
   const { density, dosePerPoint, unit } = settings
   const vol = totalVolume(warehouses)
   const dose = totalDose(warehouses, density)
@@ -26,7 +26,9 @@ export default function SummaryBar({ warehouses, settings, onExport, onShowSumma
       </div>
       <div className="summary-actions">
         <button className="summary-ghost-btn" onClick={onShowSummary}>汇总</button>
-        <button className="summary-export-btn" onClick={onExport}>导出 Excel</button>
+        <button className="summary-export-btn" onClick={onExport} disabled={exporting}>
+          {exporting ? '导出中…' : '导出 Excel'}
+        </button>
       </div>
     </div>
   )

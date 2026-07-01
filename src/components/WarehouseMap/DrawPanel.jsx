@@ -52,17 +52,27 @@ export default function DrawPanel({ shapes, push, undo }) {
   const drawFrame = useCallback(() => {
     const canvas = canvasRef.current
     if (!canvas) return
+    const dpr = window.devicePixelRatio || 1
+    const displayW = CANVAS_W, displayH = CANVAS_H
+    if (canvas.width !== displayW * dpr || canvas.height !== displayH * dpr) {
+      canvas.width = displayW * dpr
+      canvas.height = displayH * dpr
+      canvas.style.width = displayW + 'px'
+      canvas.style.height = displayH + 'px'
+    }
     const ctx = canvas.getContext('2d')
-    renderAll(ctx, CANVAS_W, CANVAS_H, shapesRef.current, selRef.current)
+    renderAll(ctx, displayW, displayH, shapesRef.current, selRef.current, dpr)
 
     const d = drawRef.current
     if (d.active) {
       const x = Math.min(d.start.x, d.cur.x), y = Math.min(d.start.y, d.cur.y)
       const w = Math.abs(d.cur.x - d.start.x), h = Math.abs(d.cur.y - d.start.y)
       if (w > 4 && h > 4) {
+        ctx.save()
+        if (dpr !== 1) ctx.scale(dpr, dpr)
         ctx.globalAlpha = 0.45
         drawShape(ctx, { type: toolRef.current, x, y, w, h, status: statusRef.current, label: '' }, false)
-        ctx.globalAlpha = 1
+        ctx.restore()
       }
     }
   }, [])
@@ -178,9 +188,18 @@ export default function DrawPanel({ shapes, push, undo }) {
   }
 
   function exportPng() {
+    const canvas = canvasRef.current
+    const dpr = window.devicePixelRatio || 1
+    // Create a temporary canvas at 2x DPR for export quality
+    const exportCanvas = document.createElement('canvas')
+    exportCanvas.width = CANVAS_W * 2
+    exportCanvas.height = CANVAS_H * 2
+    const ctx = exportCanvas.getContext('2d')
+    ctx.scale(2, 2)
+    renderAll(ctx, CANVAS_W, CANVAS_H, shapesRef.current, null, 2)
     const a = document.createElement('a')
     a.download = '垛位图.png'
-    a.href = canvasRef.current.toDataURL('image/png')
+    a.href = exportCanvas.toDataURL('image/png')
     a.click()
   }
 

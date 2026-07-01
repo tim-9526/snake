@@ -1,5 +1,4 @@
 import { useRef, useState } from 'react'
-import { importFromJson, importFromExcel } from '../utils/importData'
 import ImportPreviewModal from './ImportPreviewModal'
 
 export default function ImportButton({ onImport, label = '导入', className = '' }) {
@@ -16,8 +15,9 @@ export default function ImportButton({ onImport, label = '导入', className = '
 
     if (ext === 'json') {
       const reader = new FileReader()
-      reader.onload = (e) => {
+      reader.onload = async (e) => {
         try {
+          const { importFromJson } = await import('../utils/importData')
           setPending(importFromJson(e.target.result))
           setPendingIsExcel(false)
         } catch (err) {
@@ -30,10 +30,15 @@ export default function ImportButton({ onImport, label = '导入', className = '
 
     if (ext === 'xlsx' || ext === 'xls') {
       const reader = new FileReader()
-      reader.onload = (e) => {
-        importFromExcel(e.target.result)
-          .then(result => { setPending(result); setPendingIsExcel(true) })
-          .catch(err => setError(err.message))
+      reader.onload = async (e) => {
+        try {
+          const { importFromExcel } = await import('../utils/importData')
+          const result = await importFromExcel(e.target.result)
+          setPending(result)
+          setPendingIsExcel(true)
+        } catch (err) {
+          setError(err.message)
+        }
       }
       reader.readAsArrayBuffer(file)
       return
