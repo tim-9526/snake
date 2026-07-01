@@ -4,9 +4,9 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "node node_modules/vite/bin/vite.js",
-    "build": "node node_modules/vite/bin/vite.js build && node inline-build.mjs",
-    "preview": "node node_modules/vite/bin/vite.js preview",
+    "dev": "vite",
+    "build": "vite build && node inline-build.mjs",
+    "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest"
   },
