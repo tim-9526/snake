@@ -82,10 +82,13 @@ export function drawShape(ctx, s, selected) {
   ctx.stroke(); ctx.setLineDash([])
 
   if (s.label) {
-    ctx.fillStyle = col.text
-    ctx.font = (s.type === 'slot' ? '' : '500 ') + (s.type === 'slot' ? 11 : 12) + 'px sans-serif'
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-    ctx.fillText(s.label, s.x + s.w / 2, s.y + s.h / 2, s.w - 6)
+    const minDimForLabel = s.type === 'slot' ? 32 : 20
+    if (s.w >= minDimForLabel && s.h >= minDimForLabel) {
+      ctx.fillStyle = col.text
+      ctx.font = (s.type === 'slot' ? '' : '500 ') + (s.type === 'slot' ? 11 : 12) + 'px sans-serif'
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+      ctx.fillText(s.label, s.x + s.w / 2, s.y + s.h / 2, s.w - 6)
+    }
   }
   ctx.restore()
 }
