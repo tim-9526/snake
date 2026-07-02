@@ -5,10 +5,12 @@ import DrawPanel from './DrawPanel.jsx'
 import AutoPanel from './AutoPanel.jsx'
 import DataPanel from './DataPanel.jsx'
 import IoPanel from './IoPanel.jsx'
+import GridPanel from './GridPanel.jsx'
 import './WarehouseMap.css'
 
 const TABS = [
   { id: 'draw', label: '手绘模式' },
+  { id: 'grid', label: '网格布局' },
   { id: 'auto', label: '自动生成' },
   { id: 'data', label: '从数据生成' },
   { id: 'io',   label: '导入 / 导出' },
@@ -51,6 +53,13 @@ export default function WarehouseMap({ onClose, warehouses, settings }) {
         <div className="wm-body">
           {tab === 'draw' && (
             <DrawPanel shapes={shapes} push={push} undo={undo} />
+          )}
+          {tab === 'grid' && (
+            <GridPanel
+              warehouses={warehouses}
+              settings={settings}
+              onGenerate={handleAutoGenerate}
+            />
           )}
           {tab === 'auto' && (
             <AutoPanel onGenerate={handleAutoGenerate} />

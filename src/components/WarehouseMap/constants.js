@@ -12,6 +12,14 @@ export const COLORS = {
   port:     { fill: '#3d1408', stroke: '#D85A30', text: '#F0997B' },
 }
 
+// Excel-style grid layout colors used in generateGridLayout / canvasLib
+export const GRID_COLORS = {
+  occupiedFill: '#93c5fd', // light blue for filled stacks
+  emptyFill: '#ffffff',
+  marker: '#e63946',
+  facility: '#2ecc71',
+}
+
 export const STATUS_LABELS = {
   empty: '空置',
   occupied: '占用',

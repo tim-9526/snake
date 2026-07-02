@@ -1,4 +1,4 @@
-import { COLORS } from './constants.js'
+import { COLORS, GRID_COLORS } from './constants.js'
 
 export function snap(v) {
   return Math.round(v / 20) * 20
@@ -30,6 +30,71 @@ function drawHatch(ctx, x, y, w, h) {
   ctx.restore()
 }
 
+function drawDenseGrid(ctx, x, y, w, h, cellSize = 8) {
+  ctx.save()
+  ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip()
+  ctx.strokeStyle = 'rgba(0,0,0,0.25)'
+  ctx.lineWidth = 0.6
+  for (let gx = x; gx <= x + w; gx += cellSize) {
+    ctx.beginPath(); ctx.moveTo(gx, y); ctx.lineTo(gx, y + h); ctx.stroke()
+  }
+  for (let gy = y; gy <= y + h; gy += cellSize) {
+    ctx.beginPath(); ctx.moveTo(x, gy); ctx.lineTo(x + w, gy); ctx.stroke()
+  }
+  ctx.restore()
+}
+
+function drawSlotGridStyle(ctx, s) {
+  // Excel-style grid slot: blue fill for occupied, white/empty for empty
+  ctx.save()
+  ctx.beginPath(); ctx.rect(s.x, s.y, s.w, s.h); ctx.clip()
+  ctx.fillStyle = s.status === 'occupied' ? GRID_COLORS.occupiedFill : '#ffffff'
+  ctx.fillRect(s.x, s.y, s.w, s.h)
+  drawDenseGrid(ctx, s.x, s.y, s.w, s.h)
+  ctx.strokeStyle = '#111'
+  ctx.lineWidth = 1
+  ctx.strokeRect(s.x, s.y, s.w, s.h)
+  ctx.restore()
+}
+
+function drawMarker(ctx, s) {
+  // Red side markers like the screenshot
+  ctx.save()
+  ctx.fillStyle = '#e63946'
+  ctx.fillRect(s.x, s.y, s.w, s.h)
+  ctx.strokeStyle = '#8b0000'
+  ctx.lineWidth = 0.5
+  ctx.strokeRect(s.x, s.y, s.w, s.h)
+  ctx.restore()
+}
+
+function drawFacility(ctx, s) {
+  // Green facility label box (疏散门, 电箱, etc.)
+  ctx.save()
+  ctx.fillStyle = '#2ecc71'
+  ctx.fillRect(s.x, s.y, s.w, s.h)
+  ctx.strokeStyle = '#1e824c'
+  ctx.lineWidth = 1
+  ctx.strokeRect(s.x, s.y, s.w, s.h)
+  if (s.label) {
+    ctx.fillStyle = '#fff'
+    ctx.font = '500 11px sans-serif'
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+    ctx.fillText(s.label, s.x + s.w / 2, s.y + s.h / 2, s.w - 4)
+  }
+  ctx.restore()
+}
+
+function drawLabelBelow(ctx, s) {
+  if (!s.label) return
+  ctx.save()
+  ctx.fillStyle = '#111'
+  ctx.font = '500 11px sans-serif'
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top'
+  ctx.fillText(s.label, s.x + s.w / 2, s.y + s.h + 4, s.w + 6)
+  ctx.restore()
+}
+
 function tracePath(ctx, x, y, w, h, r) {
   if (ctx.roundRect) { ctx.roundRect(x, y, w, h, r); return }
   ctx.moveTo(x + r, y)
@@ -41,6 +106,9 @@ function tracePath(ctx, x, y, w, h, r) {
 
 export function drawShape(ctx, s, selected) {
   const selColor = '#e8d44d'
+
+  if (s.type === 'marker') { drawMarker(ctx, s); return }
+  if (s.type === 'facility') { drawFacility(ctx, s); return }
 
   if (s.type === 'port') {
     const r = Math.min(s.w, s.h) / 2, cx = s.x + s.w / 2, cy = s.y + s.h / 2
@@ -63,6 +131,23 @@ export function drawShape(ctx, s, selected) {
       ctx.fillText(s.dose + 'kg', cx, cy + r + 14, s.w + 30)
     }
     ctx.restore(); return
+  }
+
+  // Grid-style slot (Excel screenshot style)
+  if (s.type === 'slot' && s._gridStyle) {
+    drawSlotGridStyle(ctx, s)
+    if (s._labelPosition === 'below') {
+      drawLabelBelow(ctx, s)
+    } else {
+      const col = COLORS[s.status] || COLORS.shelf
+      ctx.save()
+      ctx.fillStyle = col.text
+      ctx.font = '500 11px sans-serif'
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+      ctx.fillText(s.label, s.x + s.w / 2, s.y + s.h / 2, s.w - 6)
+      ctx.restore()
+    }
+    return
   }
 
   const col = COLORS[s.type === 'slot' ? s.status : s.type] || COLORS.shelf
@@ -93,7 +178,7 @@ export function drawShape(ctx, s, selected) {
   ctx.restore()
 }
 
-const DRAW_ORDER = ['area', 'aisle', 'shelf', 'slot', 'port']
+const DRAW_ORDER = ['area', 'aisle', 'shelf', 'slot', 'port', 'marker', 'facility']
 
 export function renderAll(ctx, W, H, shapes, selected, dpr = 1) {
   ctx.clearRect(0, 0, W * dpr, H * dpr)
@@ -106,7 +191,7 @@ export function renderAll(ctx, W, H, shapes, selected, dpr = 1) {
   ctx.restore()
 }
 
-const HIT_ORDER = ['port', 'slot', 'shelf', 'aisle', 'area']
+const HIT_ORDER = ['port', 'slot', 'shelf', 'aisle', 'area', 'facility']
 
 export function hitTest(shapes, mx, my) {
   for (const t of HIT_ORDER) {
