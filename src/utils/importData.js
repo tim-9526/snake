@@ -53,6 +53,7 @@ function validateProjectData(data) {
 
   // Deep-repair: ensure zones/stacks/segments are valid arrays
   for (const wh of data.warehouses) {
+    if (!wh || typeof wh !== 'object') continue
     if (!Array.isArray(wh.zones)) wh.zones = [defaultZone('1区')]
     for (const zone of wh.zones) {
       if (!Array.isArray(zone.stacks)) zone.stacks = []
