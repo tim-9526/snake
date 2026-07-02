@@ -46,9 +46,23 @@ export function importFromJson(text) {
   throw new Error('JSON 结构不匹配，请导出后再导入')
 }
 
+// P1: deep validation — repair malformed nested structures
 function validateProjectData(data) {
   if (!Array.isArray(data.warehouses)) throw new Error('数据缺少 warehouses 字段')
   if (!data.settings || typeof data.settings !== 'object') throw new Error('数据缺少 settings 字段')
+
+  // Deep-repair: ensure zones/stacks/segments are valid arrays
+  for (const wh of data.warehouses) {
+    if (!Array.isArray(wh.zones)) wh.zones = [defaultZone('1区')]
+    for (const zone of wh.zones) {
+      if (!Array.isArray(zone.stacks)) zone.stacks = []
+      for (const stack of zone.stacks) {
+        if (!Array.isArray(stack.segments) || stack.segments.length === 0) {
+          stack.segments = [defaultSegment()]
+        }
+      }
+    }
+  }
 }
 
 /**

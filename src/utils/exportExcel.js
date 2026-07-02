@@ -7,6 +7,18 @@ import {
 } from './calc'
 
 export async function exportExcel(warehouses, settings) {
+  // P2: merges use 0-based row/col indices internally, converted to 1-based for ExcelJS.
+  //
+  // Layout (withZones mode, 7 cols):
+  //   Col 0=仓库  1=区  2=垛位  3=投药点  4=投药量  5=体积  6=总计投药量
+  // Merges:
+  //   - Col 0 (仓库名) and Col 6 (总计) merged across all rows of a warehouse
+  //   - Col 1 (区名) merged across all rows of a zone (iff zone.stacks.length > 1)
+  //
+  // Layout (single-zone mode, 6 cols):
+  //   Col 0=仓库  1=垛位  2=投药点  3=投药量  4=体积  5=总计投药量
+  // Merges:
+  //   - Col 0 and Col 5 merged across all rows of a warehouse (iff stacks.length > 1)
   const { density, dosePerPoint, unit, warehouseColName, showZones } = settings
   const whColName = warehouseColName || '仓库'
   const doseUnit = unit === 'kg' ? 'kg' : 'g'

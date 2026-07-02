@@ -6,10 +6,12 @@ function migrateData(raw) {
   if (!raw || typeof raw !== 'object') return null
   const v = raw._lsv ?? 0
 
-  // Future migrations can go here:
-  // if (v < 1) { ... }
+  // P2: version migrations applied here; writeLocal manages the final _lsv stamp
+  if (v < 1) {
+    // Future: v0 → v1 transformations
+  }
 
-  return { ...raw, _lsv: LS_DATA_VERSION }
+  return raw
 }
 
 export function readLocal() {

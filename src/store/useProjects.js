@@ -37,7 +37,9 @@ function migrateData(data) {
   if (!data) return defaultProjectData()
   const v = data._v ?? 0
   if (v < 1) {
+    // P1: preserve extra fields (future extensions) via spread
     data = {
+      ...data,
       _v: 1,
       settings: { density: 5, dosePerPoint: 200, unit: 'g', warehouseColName: '仓库', showZones: true, ...data.settings },
       warehouses: data.warehouses ?? [],

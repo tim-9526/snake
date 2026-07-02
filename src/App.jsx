@@ -44,7 +44,7 @@ export default function App() {
   // Derive these safely even when activeProject is null
   const warehouses = activeProject?.data.warehouses ?? []
   const settings = activeProject?.data.settings ?? {}
-  const actions = activeProject ? makeActions(activeProject.data, updateActiveData) : null
+  const actions = activeProject ? makeActions(updateActiveData) : null
 
   const detailStack = detailTarget
     ? warehouses

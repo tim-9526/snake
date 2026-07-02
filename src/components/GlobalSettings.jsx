@@ -35,6 +35,7 @@ export default function GlobalSettings({ settings, onSet }) {
               value={settings.dosePerPoint}
               onChange={e => onSet('dosePerPoint', Math.max(1, parseFloat(e.target.value) || 1))}
             />
+            {/* P1: dosePerPoint<=0 guard — edge case for data loaded before sanitizeSettings clamps to >=1 */}
             {settings.dosePerPoint <= 0 && (
               <span className="label" style={{ color: 'var(--color-danger)' }}>须大于 0</span>
             )}

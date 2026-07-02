@@ -6,7 +6,8 @@ const defaultStack = () => ({ id: uid(), code: '', segments: [defaultSegment()] 
 const defaultZone = () => ({ id: uid(), name: '', stacks: [defaultStack()] })
 const defaultWarehouse = () => ({ id: uid(), name: '', zones: [defaultZone()] })
 
-export function makeActions(data, updateData) {
+// P2: removed unused `data` parameter — leftover from pre-immer era
+export function makeActions(updateData) {
   const set = (updater) => updateData(d => produce(d, updater))
 
   return {

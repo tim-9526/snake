@@ -26,7 +26,9 @@ export default function ProjectSwitcher({ projects, activeId, onSwitch, onAdd, o
     if (trimmed) {
       onRename(id, trimmed)
     } else {
-      // restore original name visually — do nothing to state, input will snap back
+      // P2: restore original name in input when committed with empty string
+      const target = projects.find(p => p.id === id)
+      if (target) setEditName(target.name)
     }
     setEditingId(null)
   }
